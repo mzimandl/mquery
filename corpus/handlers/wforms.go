@@ -77,8 +77,11 @@ func (a *Actions) findLemmas(corpusID string, word string, pos string) ([]*lemma
 	return ans, nil
 }
 
-func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*results.WordFormsItem, error) {
+func (a *Actions) findWordForms(corpusID string, lemma string, sublemma string, pos string) (*results.WordFormsItem, error) {
 	q := "lemma=\"" + lemma + "\"" // TODO hardcoded `lemma`
+	if len(pos) > 0 {
+		q += " & sublemma=\"" + sublemma + "\"" // TODO hardcoded `sublemma`
+	}
 	if len(pos) > 0 {
 		q += " & pos=\"" + pos + "\"" // TODO hardcoded `pos`
 	}
@@ -115,10 +118,11 @@ func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*res
 func (a *Actions) WordForms(ctx *gin.Context) {
 	var ans []*results.WordFormsItem
 	lemma := ctx.Request.URL.Query().Get("lemma")
+	sublemma := ctx.Request.URL.Query().Get("sublemma")
 	word := ctx.Request.URL.Query().Get("word")
 	pos := ctx.Request.URL.Query().Get("pos")
 	if lemma != "" {
-		wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
+		wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, sublemma, pos)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer,
@@ -141,7 +145,7 @@ func (a *Actions) WordForms(ctx *gin.Context) {
 		}
 
 		for _, v := range lemmas {
-			wordForms, err := a.findWordForms(ctx.Param("corpusId"), v.Lemma, v.POS)
+			wordForms, err := a.findWordForms(ctx.Param("corpusId"), v.Lemma, "", v.POS)
 			if err != nil {
 				uniresp.WriteJSONErrorResponse(
 					ctx.Writer,
