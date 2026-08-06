@@ -1,6 +1,6 @@
 # MQuery
 
-MQuery is an HTTP API server for mining language corpora using Manatee-Open engine. Unlike other Manatee-based solutions, MQuery uses more fine-tuned C bindings without relying on SWIG, and naturally leverages a worker queue architecture for efficient query processing and scalability.
+MQuery is an HTTP API server for mining language corpora using Manatee-Open engine. Unlike other Manatee-based solutions, MQuery uses more fine-tuned C bindings without relying on SWIG, and naturally leverages a worker queue architecture for efficient query processing and scalability. It also ships an [MCP](https://modelcontextprotocol.io/) server (see [MCP Support](#mcp-support)) so LLM agents can query corpora directly.
 
 ## Running with Docker (Easiest Method)
 
@@ -141,3 +141,47 @@ If a reverse proxy shares an IP with a local network (e.g. runs on the same host
 ## API
 
 For the most recent API Docs, please see https://korpus.cz/mquery-test/docs/
+
+## MCP Support
+
+MQuery ships a separate `mqmcp` binary (`cmd/mqmcp`) exposing corpus querying as [MCP](https://modelcontextprotocol.io/) tools, so LLM agents can call the MQuery API directly. It acts as a thin client that translates MCP tool calls into HTTP requests against a running MQuery API instance.
+
+Available tools: 
+
+* `corpus_info`, 
+* `concordance`, 
+* `term_frequency`, 
+* `freqs`, 
+* `collocations`, 
+* `text_types`, 
+* `text_types_overview`, 
+* `text_types_avail_values`.
+
+It is built alongside the main binary by `make build` (output: `./mqmcp`) and run in one of two modes, selected via the `MODE` env var:
+
+* `stdio` (default) - for local MCP clients (e.g. desktop AI assistants); talks to `https://www.korpus.cz/mquery` unless overridden
+* `http` - runs a Streamable HTTP MCP server for shared/remote deployments
+
+Configuration can be provided via a JSON config file (`CONF_PATH` env var) and/or environment variables:
+
+* `MQUERY_API_URL` - MQuery API base URL (required in `http` mode)
+* `MQUERY_API_HEADER_<NAME>` - forwards a header to the MQuery API, e.g. `MQUERY_API_HEADER_X_API_KEY=secret` sends `X-Api-Key: secret` (useful for the token-based [authentication](#authentication) described above)
+* `LISTEN_ADDRESS` - listen address (required in `http` mode)
+* `LOG_PATH` / `LOG_LEVEL` - logging destination and level (`stdio` mode logs to a file by default; set `LOG_PATH=stderr` to log to stderr instead)
+
+Example config file:
+
+```json
+{
+  "apiUrl": "http://localhost:8989",
+  "apiHeaders": {
+    "X-Api-Key": "your-secret-token"
+  },
+  "server": {
+    "listenAddress": "0.0.0.0:8990"
+  },
+  "logging": {
+    "level": "info"
+  }
+}
+```
