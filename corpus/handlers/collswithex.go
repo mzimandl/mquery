@@ -155,6 +155,7 @@ func mkEmptyResult() (<-chan rdb.WorkerResult, error) {
 // @Param        srchAttr query string false "a positional attribute considered when collocations are calculated ()" default(lemma)
 // @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
 // @Param        maxItems query int false "maximum number of result items" default(20)
+// @Param        minItems query int false "minimum number of items for not empty response" default(0)
 // @Param        examplesPerColl query int false "number of concordance lines per collocation" default(5)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC in coll. examples. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
 // @Param        event query string false "an event id used in response data stream; if omitted then just `data` line are returned"
@@ -308,6 +309,9 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 		}
 	}
 
+	if len(ans.Colls) < collArgs.minItems {
+		return
+	}
 	// let's write colls without actual examples first
 	writeStreamedData(ctx, &collArgs, &ans)
 
