@@ -32,6 +32,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -207,7 +208,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 				SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
 				MinFreq:     int64(collArgs.minCollFreq),
 				MinCorpFreq: int64(collArgs.minCorpFreq),
-				MaxItems:    collArgs.maxItems,
+				MaxItems:    util.Ternary(collArgs.minItems > collArgs.maxItems, collArgs.minItems, collArgs.maxItems),
 			},
 		},
 		GetCTXStoredTimeout(ctx),
@@ -290,6 +291,19 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 		SrchRange:  result1.SrchRange,
 		ResultType: rdb.ResultTypeCOllocationsWithExamples,
 	}
+
+	// if the number of collocations is less than minItems, we return an empty result
+	// else we limit the number of collocations to maxItems and start fetching examples for each collocation
+	if len(result1.Colls) < collArgs.minItems {
+		log.Debug().Msgf("CollocationsWithExamples - number of collocations (%d) is less than minItems (%d), returning empty result", len(result1.Colls), collArgs.minItems)
+		return
+	} else {
+		log.Debug().Msgf("CollocationsWithExamples - number of collocations (%d) is greater than or equal to minItems (%d), returning result with maxItems (%d)", len(result1.Colls), collArgs.minItems, collArgs.maxItems)
+		if len(result1.Colls) > collArgs.maxItems {
+			result1.Colls = result1.Colls[:collArgs.maxItems]
+		}
+	}
+
 	ans.Colls = make([]*extendedCollItem, len(result1.Colls))
 	for i, v := range result1.Colls {
 		ans.Colls[i] = &extendedCollItem{
@@ -307,10 +321,6 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 			Score: v.Score,
 			Freq:  v.Freq,
 		}
-	}
-
-	if len(ans.Colls) < collArgs.minItems {
-		return
 	}
 	// let's write colls without actual examples first
 	writeStreamedData(ctx, &collArgs, &ans)
