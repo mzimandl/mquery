@@ -95,6 +95,7 @@ func (ecItem extendedCollItem) MarshalJSON() ([]byte, error) {
 // ---------
 
 type endpointResult struct {
+	Corpname   string              `json:"corpname"`
 	CorpusSize int64               `json:"corpusSize"`
 	SubcSize   int64               `json:"subcSize,omitempty"`
 	Colls      []*extendedCollItem `json:"colls"`
@@ -286,6 +287,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 	}
 
 	ans := endpointResult{
+		Corpname:   collArgs.queryProps.corpus,
 		CorpusSize: result1.CorpusSize,
 		Measure:    result1.Measure,
 		SrchRange:  result1.SrchRange,

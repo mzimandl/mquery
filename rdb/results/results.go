@@ -300,6 +300,7 @@ func (res *ConcSize) MarshalJSON() ([]byte, error) {
 // ----
 
 type CollocationsResponse struct {
+	Corpname   string              `json:"corpname"`
 	CorpusSize int64               `json:"corpusSize"`
 	ConcSize   int64               `json:"concSize"`
 	SubcSize   int64               `json:"subcSize,omitempty"`
@@ -312,6 +313,7 @@ type CollocationsResponse struct {
 
 type Collocations struct {
 	ConcSize   int64
+	Corpname   string
 	CorpusSize int64
 	SubcSize   int64
 	Colls      []*mango.GoCollItem
@@ -336,6 +338,7 @@ func (res *Collocations) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		CollocationsResponse{
 			ConcSize:   res.ConcSize,
+			Corpname:   res.Corpname,
 			CorpusSize: res.CorpusSize,
 			SubcSize:   res.SubcSize,
 			Colls:      colls,
@@ -366,6 +369,7 @@ func (res CollFreqData) Type() rdb.ResultType {
 type ConcordanceResponse struct {
 	Lines      []concordance.Line `json:"lines"`
 	ConcSize   int                `json:"concSize"`
+	Corpname   string             `json:"corpname"`
 	CorpusSize int                `json:"corpusSize"`
 	IPM        float64            `json:"ipm"`
 	ResultType rdb.ResultType     `json:"resultType"`
@@ -385,6 +389,7 @@ func (cl ConcordanceLines) alwaysAsList() ConcordanceLines {
 type Concordance struct {
 	Lines      ConcordanceLines
 	ConcSize   int
+	Corpname   string
 	CorpusSize int
 	IPM        float64
 	Error      error
@@ -403,6 +408,7 @@ func (res Concordance) MarshalJSON() ([]byte, error) {
 		ConcordanceResponse{
 			Lines:      res.Lines.alwaysAsList(),
 			ConcSize:   res.ConcSize,
+			Corpname:   res.Corpname,
 			CorpusSize: res.CorpusSize,
 			IPM:        util.Ternary(res.CorpusSize > 0, float64(res.ConcSize)/float64(res.CorpusSize)*1e6, 0),
 			ResultType: res.Type(),

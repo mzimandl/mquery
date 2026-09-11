@@ -322,7 +322,7 @@ func (a *Actions) anyConcordance(
 	if !ok {
 		return
 	}
-
+	result.Corpname = queryProps.corpus
 	corpus.ApplyTextPropertiesMapping(result, queryProps.corpusConf.TextProperties)
 
 	switch format {
