@@ -36,6 +36,7 @@ const (
 	DefaultMinCollFreq     = 3
 	DefaultCollocationFunc = "logDice"
 	DefaultCollMaxItems    = 20
+	DefaultCollMinItems    = 0
 )
 
 type collArgs struct {
@@ -46,6 +47,7 @@ type collArgs struct {
 	minCollFreq int
 	minCorpFreq int
 	maxItems    int
+	minItems    int
 	event       string
 }
 
@@ -113,6 +115,11 @@ func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
 		return ans, false
 	}
 
+	ans.minItems, ok = unireq.GetURLIntArgOrFail(ctx, "minItems", DefaultCollMinItems)
+	if !ok {
+		return ans, false
+	}
+
 	ans.event = ctx.Query("event")
 
 	return ans, true
@@ -131,6 +138,7 @@ func (a *Actions) fetchCollActionArgs(ctx *gin.Context) (collArgs, bool) {
 // @Param        srchAttr query string false "a positional attribute considered when collocations are calculated ()" default(lemma)
 // @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
 // @Param        maxItems query int false "maximum number of result items" default(20)
+// @Param        minItems query int false "minimum number of items for not empty response" default(0)
 // @Success      200 {object} results.CollocationsResponse
 // @Router       /collocations/{corpusId} [get]
 func (a *Actions) Collocations(ctx *gin.Context) {
@@ -180,6 +188,9 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	}
 	result, ok := TypedOrRespondError[results.Collocations](ctx, rawResult)
 	if !ok {
+		return
+	}
+	if len(result.Colls) < collArgs.minItems {
 		return
 	}
 	result.SrchRange[0] = -1 * result.SrchRange[0] // note: HTTP and internal API are different

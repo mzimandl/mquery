@@ -32,6 +32,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -94,6 +95,7 @@ func (ecItem extendedCollItem) MarshalJSON() ([]byte, error) {
 // ---------
 
 type endpointResult struct {
+	Corpname   string              `json:"corpname"`
 	CorpusSize int64               `json:"corpusSize"`
 	SubcSize   int64               `json:"subcSize,omitempty"`
 	Colls      []*extendedCollItem `json:"colls"`
@@ -155,6 +157,7 @@ func mkEmptyResult() (<-chan rdb.WorkerResult, error) {
 // @Param        srchAttr query string false "a positional attribute considered when collocations are calculated ()" default(lemma)
 // @Param        minCollFreq query int false " the minimum frequency that a collocate must have in the searched range." default(3)
 // @Param        maxItems query int false "maximum number of result items" default(20)
+// @Param        minItems query int false "minimum number of items for not empty response" default(0)
 // @Param        examplesPerColl query int false "number of concordance lines per collocation" default(5)
 // @Param        contextWidth query int false "Defines number of tokens around KWIC in coll. examples. For a value K, the left context is floor(K / 2) and for the right context, it is ceil(K / 2)." minimum(0) maximum(50) default(10)
 // @Param        event query string false "an event id used in response data stream; if omitted then just `data` line are returned"
@@ -206,7 +209,7 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 				SrchRange:   [2]int{-collArgs.srchLeft, collArgs.srchRight},
 				MinFreq:     int64(collArgs.minCollFreq),
 				MinCorpFreq: int64(collArgs.minCorpFreq),
-				MaxItems:    collArgs.maxItems,
+				MaxItems:    util.Ternary(collArgs.minItems > collArgs.maxItems, collArgs.minItems, collArgs.maxItems),
 			},
 		},
 		GetCTXStoredTimeout(ctx),
@@ -284,11 +287,25 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 	}
 
 	ans := endpointResult{
+		Corpname:   collArgs.queryProps.corpus,
 		CorpusSize: result1.CorpusSize,
 		Measure:    result1.Measure,
 		SrchRange:  result1.SrchRange,
 		ResultType: rdb.ResultTypeCOllocationsWithExamples,
 	}
+
+	// if the number of collocations is less than minItems, we return an empty result
+	// else we limit the number of collocations to maxItems and start fetching examples for each collocation
+	if len(result1.Colls) < collArgs.minItems {
+		log.Debug().Msgf("CollocationsWithExamples - number of collocations (%d) is less than minItems (%d), returning empty result", len(result1.Colls), collArgs.minItems)
+		return
+	} else {
+		log.Debug().Msgf("CollocationsWithExamples - number of collocations (%d) is greater than or equal to minItems (%d), returning result with maxItems (%d)", len(result1.Colls), collArgs.minItems, collArgs.maxItems)
+		if len(result1.Colls) > collArgs.maxItems {
+			result1.Colls = result1.Colls[:collArgs.maxItems]
+		}
+	}
+
 	ans.Colls = make([]*extendedCollItem, len(result1.Colls))
 	for i, v := range result1.Colls {
 		ans.Colls[i] = &extendedCollItem{
@@ -307,7 +324,6 @@ func (a *Actions) CollocationsExtended(ctx *gin.Context) {
 			Freq:  v.Freq,
 		}
 	}
-
 	// let's write colls without actual examples first
 	writeStreamedData(ctx, &collArgs, &ans)
 
